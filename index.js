@@ -42,6 +42,7 @@ class MyPromise {
 }
 
 /* Example */
+
 const q = new MyPromise(function (res) {
   setTimeout(function () {
     res(25);
