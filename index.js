@@ -1,52 +1,67 @@
 const PENDING = 0;
-const FULFILLED = 1;
-const REJECTED = 2;
+const REJECTED = 1;
+const RESOLVED = 2;
 
-class MyPromise {
-  constructor(fn) {
-    this.state = PENDING;
-    this.value = null;
-    this.handler = [];
-    fn(this.resolve);
+class R {
+  state = null;
+  value = null;
+
+  fulfill(value) {
+    if (this.state !== PENDING || value !== null) return;
+
+    this.state = RESOLVED;
+    this.value = value;
+    console.log('Resolved: ', this.value);
   }
 
-  fulfill = _value => {
-    this.state = FULFILLED;
-    this.value = _value;
-    this.handle(this.handler);
-  };
+  reject(reason) {
+    if (this.state !== PENDING || value !== null) return;
 
-  handle = callbacks => {
-    for (let i = 0; i < callbacks.length; i++) {
-      callbacks[i](this.value);
-    }
-  };
-
-  reject = _error => {
     this.state = REJECTED;
-    this.value = _error;
-  };
+    this.value = reason;
+    console.log('Rejected: ', this.value);
+  }
 
-  resolve = result => {
-    this.fulfill(result);
-  };
+  /**
+   * A method to access the promise current or eventual value.
+   * If the promise is resolved, onFulfilled will be called. If the promise is rejected, onRejected will be called.
+   *
+   * @param {Function} onFulfilled
+   * @param {Function} onRejected
+   * @return {R}
+   */
+  then(onFulfilled, onRejected) {
+    if (typeof onFulfilled === 'function') {
+      if (this.state === RESOLVED) {
+        onFulfilled(value);
+        return;
+      }
+    }
 
-  then = onFulfilled => {
-    if (this.state === PENDING) {
-      this.handler.push(onFulfilled);
+    if (typeof onRejected === 'function') {
+      if (this.state === REJECTED) {
+        onRejected(value);
+        return;
+      }
     }
-    if (this.state === FULFILLED) {
-      onFulfilled(value);
+  }
+
+  constructor(fn) {
+    this.state = PENDING;
+
+    try {
+      fn(this.fulfill.bind(this), this.reject.bind(this));
+    } catch (error) {
+      this.reject(error);
     }
-  };
+  }
 }
 
-/* Example */
-
-const q = new MyPromise(function (res) {
+const func = function (res, rej) {
   setTimeout(function () {
-    res(25);
+    res(45);
   }, 1000);
-});
+};
 
-q.then(value => console.log(value));
+const apply = new R(func);
+console.log(apply.fulfill(3));
