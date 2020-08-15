@@ -88,17 +88,22 @@ class R {
    * @param {{onError: function, newPromise: R}} queueItem Contains both the callback function & the `then` promise.
    */
   _rejectionHandler(queueItem) {
-    let queueResponse = queueItem.onError(this._reason);
+    let queueResponse;
+    try {
+      queueResponse = queueItem.onError(this._reason);
+    } catch (error) {
+      queueItem.newPromise._reject(error);
+    }
     if (queueResponse && queueResponse instanceof R) {
       queueResponse
         .then(function (reason) {
-          queueItem.newPromise._reject(reason);
+          queueItem.newPromise._resolve(reason);
         })
         .catch(function (error) {
-          queueItem.newPromise._reject(reason);
+          queueItem.newPromise._reject(error);
         });
     } else {
-      queueItem.newPromise._reject(this.reason);
+      queueItem.newPromise._reject(this._reason);
     }
   }
 
@@ -108,10 +113,10 @@ class R {
    * Returns a Promise (that can be resolved/rejected based on the callback).
    *
    * @param {Function|R} onFulfilled
-   * @param {*} onRejected
+   * @param {*} onError
    * @returns {R}
    */
-  then(onFulfilled, onRejected) {
+  then(onFulfilled, onError) {
     let newPromise = new R(function (res, rej) {});
 
     if (this._state === RESOLVED) {
@@ -119,17 +124,29 @@ class R {
         onFulfilled,
         newPromise
       });
-      return;
     }
 
     if (this._state === REJECTED) {
+      // this._rejectionHandler({
+      //   onError,
+      //   newPromise
+      // });
       newPromise._reject(this._reason);
     }
 
-    this._resolutionQueue.push({
-      onFulfilled,
-      newPromise
-    });
+    if (onFulfilled && typeof onFulfilled === 'function') {
+      this._resolutionQueue.push({
+        onFulfilled,
+        newPromise
+      });
+    }
+
+    if (onError && typeof onError === 'function') {
+      this._rejectionQueue.push({
+        onError,
+        newPromise
+      });
+    }
     return newPromise;
   }
 
@@ -153,6 +170,8 @@ class R {
       onError,
       newPromise
     });
+
+    return newPromise;
   }
 }
 

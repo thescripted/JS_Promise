@@ -15,7 +15,7 @@ describe('Promise test suite', () => {
     let promise = new R(function (resolve) {
       setTimeout(function () {
         resolve(testing);
-      }, 100);
+      }, 20);
     });
 
     promise.then(res => {
@@ -28,7 +28,7 @@ describe('Promise test suite', () => {
     let promise = new R(function (resolve) {
       setTimeout(function () {
         resolve(testing);
-      }, 100);
+      }, 20);
     });
 
     promise.then(res => {
@@ -52,7 +52,7 @@ describe('Promise test suite', () => {
     let promise = new R(function (resolve) {
       setTimeout(function () {
         resolve();
-      }, 100);
+      }, 20);
     });
 
     promise
@@ -60,7 +60,7 @@ describe('Promise test suite', () => {
         return new R(function (resolve) {
           setTimeout(function () {
             resolve(testing);
-          }, 100);
+          }, 20);
         });
       })
       .then(function (res) {
@@ -75,7 +75,7 @@ describe('Promise test suite', () => {
       setTimeout(function () {
         resolve(40);
         resolve(80);
-      }, 100);
+      }, 20);
     });
 
     promise.then(function (res) {
@@ -89,7 +89,7 @@ describe('Promise test suite', () => {
     let promise = new R(function (resolve, reject) {
       setTimeout(function () {
         reject(testError);
-      }, 100);
+      }, 20);
     });
 
     promise.catch(function (error) {
@@ -103,14 +103,14 @@ describe('Promise test suite', () => {
     let promise = new R(function (resolve, reject) {
       setTimeout(function () {
         reject(testError);
-      }, 100);
+      }, 20);
     });
 
     promise.then(function () {
       return new Promise(function (resolve) {
         setTimeout(function () {
           resolve(500);
-        }, 100);
+        }, 20);
       });
     });
 
@@ -125,7 +125,7 @@ describe('Promise test suite', () => {
     let promise = new R(function (resolve, reject) {
       setTimeout(function () {
         resolve(500);
-      }, 100);
+      }, 20);
     });
 
     promise
@@ -133,7 +133,7 @@ describe('Promise test suite', () => {
         return new R(function (resolve, reject) {
           setTimeout(function () {
             reject(testError);
-          }, 100);
+          }, 20);
         });
       })
       .catch(function (error) {
@@ -147,7 +147,7 @@ describe('Promise test suite', () => {
     let promise = new R(function (resolve, reject) {
       setTimeout(function () {
         resolve(500);
-      }, 100);
+      }, 20);
     });
     promise
       .then(function () {
@@ -169,11 +169,126 @@ describe('Promise test suite', () => {
         return new R(function (resolve) {
           setTimeout(function () {
             resolve(50);
-          }, 100);
+          }, 20);
         });
       })
       .catch(function (value) {
         expect(value).toBe(testError);
+        done();
+      });
+  });
+  it('should catch synchronous errors in rejection handlers', done => {
+    let testError = new Error('something is wrong');
+    let promise = new R(function (resolve, reject) {
+      setTimeout(function () {
+        resolve();
+      }, 20);
+    });
+
+    promise
+      .then(function () {
+        throw new Error('some Error');
+      })
+      .catch(function () {
+        throw testError;
+      })
+      .catch(function (error) {
+        expect(error).toBe(testError);
+        done();
+      });
+  });
+
+  it('should allow promise chaining to work after `catch` ', done => {
+    let testString = 'hello';
+    let promise = new R(function (resolve, reject) {
+      setTimeout(function () {
+        resolve();
+      }, 20);
+    });
+
+    promise
+      .then(function () {
+        throw new Error('Oh no!');
+      })
+      .catch(function () {
+        return new R(function (resolve) {
+          setTimeout(function () {
+            resolve(testString);
+          }, 20);
+        });
+      })
+      .then(function (value) {
+        expect(value).toBe(testString);
+        done();
+      });
+  });
+
+  it('should catch rejection returned from rejection promises in the rejection handler', done => {
+    let testString = 'hello';
+    let promise = new R(function (resolve, reject) {
+      setTimeout(function () {
+        resolve();
+      }, 20);
+    });
+
+    promise
+      .then(function () {
+        throw new Error('Oh no!');
+      })
+      .catch(function () {
+        return new R(function (resolve, reject) {
+          setTimeout(function () {
+            reject(testString);
+          }, 20);
+        });
+      })
+      .catch(function (value) {
+        expect(value).toBe(testString);
+        done();
+      });
+  });
+
+  it('should treat the second argument of `then` as a rejection handler', done => {
+    let testError = new Error('something is wrong');
+    let promise = new R(function (resolve, reject) {
+      setTimeout(function () {
+        reject(testError);
+      }, 20);
+    });
+
+    promise.then(
+      function () {},
+      function (error) {
+        expect(error).toBe(testError);
+        done();
+      }
+    );
+  });
+
+  it('should attach the second argument of then to the promise `then` is called on', done => {
+    let testError = new Error('something is wrong');
+    let didrun = false;
+    let promise = new R(function (resolve, reject) {
+      setTimeout(function () {
+        resolve();
+      }, 20);
+    });
+    promise
+      .then(
+        function () {
+          return new R(function (resolve, reject) {
+            setTimeout(function () {
+              reject(testError);
+            }, 20);
+          });
+        },
+        function () {
+          didrun = true; // This is not supposed to run...
+        }
+      )
+      .catch(function (error) {
+        expect(error).toBe(testError);
+        expect(didrun).toBe(false);
         done();
       });
   });
