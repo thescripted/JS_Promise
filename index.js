@@ -1,97 +1,89 @@
 const PENDING = 0;
-const REJECTED = 1;
-const RESOLVED = 2;
+const RESOLVED = 1;
+const REJECTED = 2;
 
 class R {
-  state = null;
-  value = null;
-  handler = []; // Contains onFulfilled & onRejected functions to call.
-
-  fulfill(value) {
-    console.log(this);
-    if (this.state !== PENDING || this.value !== null) return;
-
-    this.state = RESOLVED;
-    if (typeof value === 'function') return; //TODO: Handle Promises as input.
-    this.value = value;
-
-    this.handler.forEach(this.handle.bind(this));
-    this.handler = null; // Empty the array to avoid callbacks.
-    // On Fulfilled, Call the handler to execute the functions needed to execute.
-    // Pass in the value, as needed.
-  }
-
-  handle(handler) {
-    if (this.state === RESOLVED && typeof handler.onFulfilled === 'function') {
-      handler.onFulfilled(this.value);
-    }
-
-    if (this.state === REJECTED && typeof handler.onFulfilled === 'function') {
-      handler.onRejected(this.value);
-    }
-  }
-
-  reject(reason) {
-    if (this.state !== PENDING || this.value !== null) return;
-
-    this.state = REJECTED;
-    this.value = reason;
-  }
-
-  /**
-   * A method to access the promise current or eventual value.
-   * If the promise is resolved, onFulfilled will be called. If the promise is rejected, onRejected will be called.
-   *
-   * @param {Function} onFulfilled
-   * @param {Function} onRejected
-   * @return {R}
-   */
-  then(onFulfilled, onRejected) {
-    if (onFulfilled && typeof onFulfilled !== 'function') return;
-    if (onRejected && typeof onRejected !== 'function') return;
-
-    // Push to handler until state is resolved. Fulfill will execute functions.
-    if (this.state == PENDING) {
-      // Timeout ensures we are always asynchronous
-      setTimeout(function () {
-        this.handler.push({
-          onFulfilled: onFulfilled,
-          onRejected: onRejected
-        });
-      }, 0);
-    }
-    // If the state is already resolved, execute any res/rej then methods.
-    if (this.state === RESOLVED && this.handler.length === 0) {
-      onFulfilled(this.value); // State is already resolved & no more thenables. Execute your function.
-      return;
-    }
-
-    if (this.state === REJECTED && this.handler.length === 0) {
-      onRejected(this.value);
-      return;
-    }
-    return new R(function (resolve, reject) {
-      // `then` returns a promise, which must be resolved/rejected.
-      resolve(5);
-    });
-  }
+  _state = PENDING;
+  _value;
+  _queue = [];
 
   constructor(fn) {
-    this.state = PENDING;
+    fn(this._resolve.bind(this), this._reject.bind(this));
+  }
 
-    try {
-      fn(this.fulfill.bind(this), this.reject.bind(this));
-    } catch (error) {
-      this.reject(error);
+  _resolve(value) {
+    if (this._state !== PENDING) {
+      return;
+    }
+
+    this._state = RESOLVED;
+    this._value = value;
+    this._queue.forEach(this._handler.bind(this));
+    this._queue = null;
+  }
+
+  _reject(reason) {
+    if (this._state !== PENDING) {
+      return;
+    }
+
+    this._state = REJECTED;
+    this._value = reason;
+    this._queue.forEach(this._handler.bind(this));
+    this._queue = null;
+  }
+
+  _handler(queueitem) {
+    let queueresponse = queueitem.onFulfilled(this._value);
+    if (queueresponse && queueresponse instanceof R) {
+      // If queue item is a promise, wait for promise to resolve before resolving the `then` that the queue item was attached to.
+      queueresponse.then(function (value) {
+        queueitem.newPromise._resolve(value);
+      });
+    } else {
+      // Otherwise, immediately resolve the `then` promise.
+      queueitem.newPromise._resolve(this._value);
     }
   }
+
+  then(onFulfilled, onRejected) {
+    if (this._state === RESOLVED) {
+      onFulfilled(this._value);
+      return;
+    }
+
+    let newPromise = new R(function (res, rej) {});
+
+    this._queue.push({
+      onFulfilled,
+      onRejected,
+      newPromise
+    });
+    return newPromise;
+  }
+
+  catch(reason) {}
 }
 
-const func = function (res, rej) {
-  setTimeout(function () {
-    res(50);
-  }, 2000);
-};
+// let response;
 
-const promise = new R(func);
-promise.then(res => console.log('Resolved: ', res));
+// let promise = new R(function (resolve) {
+//   setTimeout(function () {
+//     resolve();
+//   }, 500);
+// });
+
+// promise
+//   .then(function () {
+//     return new R(function (resolve) {
+//       setTimeout(function () {
+//         resolve('hey there');
+//       }, 1000);
+//     });
+//   })
+//   .then(function (res) {
+//     response = res;
+//     console.log(response);
+//   });
+
+module.exports = R;
