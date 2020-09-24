@@ -18,7 +18,7 @@ class R {
   }
 
   /**
-   * Transitions the state from PENDING TO RESOLVE, assigns `_value`, and  runs the resolution handler across the resolution queue.
+   * Transitions the state from pending to resolve, assigns `_value`, and  runs the resolution handler across the resolution queue.
    *
    * @param {Any} value
    */
@@ -34,7 +34,7 @@ class R {
   }
 
   /**
-   * Transitions the state from PENDING TO REJECTED, assigns `_reason`, and runs the rejection handler across the rejection queue.
+   * Transitions the state from pending to rejected, assigns `_reason`, and runs the rejection handler across the rejection queue.
    *
    * @param {Any} reason
    */
@@ -174,5 +174,17 @@ class R {
     return newPromise;
   }
 }
+
+const record = new R(function (res) {
+  setTimeout(function () {
+    res(40);
+  }, 2500);
+});
+
+record.then(function (result) {
+  console.log(result);
+});
+
+console.log(process.env.EXAMPLE_ID);
 
 module.exports = R;
